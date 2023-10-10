@@ -1,6 +1,7 @@
 'use strict';
 
-const {Application} = require('./app');
+import {Application} from "./app";
+
 
 if (require.main === module) {
     const app = new Application()

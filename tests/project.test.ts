@@ -1,14 +1,14 @@
 'use strict';
 
-const {Project} = require('../project')
-const assert = require("assert");
+import {Project} from "../project";
+import assert from "assert";
 
 describe('Project', function () {
     it('test1', async function () {
         const p = new Project();
 
         p.addLockVersion('jquery', '3.0.0');
-        p.lockDate = new Date("2020-01-01T00:00:00.000Z")
+        p.lockDate = new Date("2020-01-01T00:00:00.000Z").valueOf();
 
         const jqPkg = await p.getPackage('jquery')
         const msPkg = await p.getPackage('ms');

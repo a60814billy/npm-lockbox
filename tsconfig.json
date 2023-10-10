@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "outDir": "./dist",
+    "target": "ES2018",
+    "lib": [
+      "ES2018"
+    ],
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "strict": true
+  },
+  "include": [
+    "*.ts",
+    "*.js"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
+}
