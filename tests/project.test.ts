@@ -1,7 +1,7 @@
 'use strict';
 
 import {Project} from "@/project";
-import assert from "assert";
+import {strictEqual} from "assert";
 
 describe('Project', function () {
     it('test1', async function () {
@@ -13,7 +13,7 @@ describe('Project', function () {
         const jqPkg = await p.getPackage('jquery')
         const msPkg = await p.getPackage('ms');
 
-        assert.strictEqual(jqPkg['dist-tags']['latest'], '3.0.0');
-        assert.strictEqual(msPkg['dist-tags']['latest'], '2.1.2');
+        strictEqual(jqPkg['dist-tags']['latest'], '3.0.0');
+        strictEqual(msPkg['dist-tags']['latest'], '2.1.2');
     })
 });
