@@ -1,15 +1,14 @@
+import * as express from "express";
 import {Db, MongoClient} from "mongodb";
-import express, {Express, Request} from "express";
 import {Project} from "./project";
-
 
 export class Application {
     private client: MongoClient;
-    private app: Express
+    private app: express.Express;
     private db?: Db | null;
 
     constructor(dbUrl?: string) {
-        const url = dbUrl || process.env.NPM_LB_DB_STR || 'mongodb://localhost:27017';
+        const url = dbUrl || process.env.NPM_LB_DB_STR || "mongodb://localhost:27017";
 
         this.client = new MongoClient(url, {
             useUnifiedTopology: true,
@@ -20,22 +19,20 @@ export class Application {
 
         const project = new Project();
         project.projectName = "default-project";
-        project.lockDate = new Date('2020-01-01T00:00:00.000Z').valueOf();
-        project.addLockVersion('jquery', '3.0.0');
+        project.lockDate = new Date("2017-01-19T00:00:00.000Z").valueOf();
+        project.addLockVersion("jquery", "3.0.0");
 
-        this.app.get('*', async (req, res) => {
-            const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
+        this.app.get("*", async (req: express.Request, res: express.Response) => {
+            // console.log(fullUrl);
 
-            console.log(fullUrl)
-
-            let pkgName = this.parsePkgNameFromReq(req);
+            const pkgName = this.parsePkgNameFromReq(req);
 
             if (pkgName === "") {
                 res.status(200).send(`Home`);
                 return;
             }
 
-            const pkg = await project.getPackage(pkgName)
+            const pkg = await project.getPackage(pkgName);
             if (pkg) {
                 res.json(pkg);
                 return;
@@ -46,23 +43,25 @@ export class Application {
 
     }
 
-    parsePkgNameFromReq(req: Request) {
+    public parsePkgNameFromReq(req: express.Request): string {
         let pkgName = decodeURIComponent(req.url);
-        if (pkgName.endsWith('/')) {
+        if (pkgName.endsWith("/")) {
             pkgName = pkgName.substring(0, pkgName.length - 1);
         }
-        if (pkgName.startsWith('/')) {
+        if (pkgName.startsWith("/")) {
             pkgName = pkgName.substring(1);
         }
         return pkgName;
     }
 
-    async start() {
-        await this.client.connect();
-        this.db = this.client.db('npm-lockbox');
+    public async start(): Promise<void> {
+        const self = this;
 
-        this.app.listen(8080, () => {
-            console.log('Server started at port 8080');
-        })
+        MongoClient.connect("mongodb://localhost:27017", (err, client) => {
+            self.db = client.db("npm-lockbox");
+            self.app.listen(8080, () => {
+                // console.log("Server started at port 8080");
+            });
+        });
     }
 }

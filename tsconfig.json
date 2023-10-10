@@ -1,9 +1,11 @@
 {
   "compilerOptions": {
-    "target": "ES2018",
+    "target": "es2015",
+    "outDir": "./dist",
     "lib": [
-      "ES2018"
+      "es2015"
     ],
+    "baseUrl": ".",
     "paths": {
       "@/*": [
         "./src/*"
@@ -12,9 +14,14 @@
     "module": "commonjs",
     "moduleResolution": "node",
     "skipLibCheck": true,
-    "esModuleInterop": true,
-    "strict": true,
-    "noImplicitAny": true
+    "noImplicitAny": true,
+    "types": [
+      "node",
+      "mocha"
+    ],
+    "typeRoots": [
+      "./node_modules/@types"
+    ]
   },
   "include": [
     "**/*.ts"

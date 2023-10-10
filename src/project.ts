@@ -1,15 +1,16 @@
-import path from "path";
-import fs from "fs";
-import semver from "semver";
-import https from "https";
+import * as fs from "fs";
+import * as https from "https";
+import * as path from "path";
+import * as semver from "semver";
 
-const mirrorPath = path.join(__dirname, '../mirror');
+const mirrorPath = path.join(__dirname, "../mirror");
 
-interface PackageData {
-    name: string,
-    description: string,
-    time: Record<string, string>
-    versions: Record<string, string>
+interface IPackageData {
+    name: string;
+    description: string;
+    "dist-tags": Record<string, string>;
+    time: Record<string, string>;
+    versions: Record<string, string>;
 }
 
 export class Project {
@@ -23,37 +24,35 @@ export class Project {
         this.lockDate = Date.now();
     }
 
-    addLockVersion(pkgName: string, version: string) {
+    public addLockVersion(pkgName: string, version: string): void {
         this.lockVersionList[pkgName] = version;
     }
 
-
-    isPackageExists(packageName: string) {
+    public isPackageExists(packageName: string): boolean {
         const packageMetadataPath = path.join(mirrorPath, `${packageName}.json`);
         return fs.existsSync(packageMetadataPath);
     }
 
-
-    downloadPackage(packageName: string) {
+    public downloadPackage(packageName: string): Promise<{}> {
         return new Promise((resolve, reject) => {
-            console.log(`Download ${packageName}`);
+            // console.log(`Download ${packageName}`);
             const options = {
-                hostname: 'registry.npmjs.org',
-                port: 443,
+                hostname: "registry.npmjs.org",
+                method: "GET",
                 path: `/${packageName}`,
-                method: 'GET',
+                port: 443,
             };
 
             const req = https.request(options, (res) => {
-                console.log(`statusCode: ${res.statusCode}`);
+                // console.log(`statusCode: ${res.statusCode}`);
 
-                let data = '';
+                let data = "";
 
-                res.on('data', (d) => {
+                res.on("data", (d) => {
                     data += d;
                 });
 
-                res.on('end', () => {
+                res.on("end", () => {
                     const pkgPath = `mirror/${packageName}.json`;
 
                     const dirName = path.dirname(pkgPath);
@@ -62,12 +61,12 @@ export class Project {
                     }
 
                     fs.writeFileSync(pkgPath, data);
-                    console.log(`Downloaded ${packageName} to ${pkgPath}`);
-                    resolve(null);
+                    // console.log(`Downloaded ${packageName} to ${pkgPath}`);
+                    resolve(undefined);
                 });
             });
 
-            req.on('error', (error) => {
+            req.on("error", (error) => {
                 console.error(error);
                 reject(error);
             });
@@ -75,35 +74,35 @@ export class Project {
         });
     }
 
-    async getPackage(packageName: string) {
+    public async getPackage(packageName: string): Promise<IPackageData> {
         if (!this.isPackageExists(packageName)) {
             await this.downloadPackage(packageName);
         }
 
-        const pkgMetaData = JSON.parse(fs.readFileSync(path.join(mirrorPath, `${packageName}.json`)).toString('utf8'));
+        const pkgMetaData = JSON.parse(fs.readFileSync(path.join(mirrorPath, `${packageName}.json`)).toString("utf8"));
 
         if (this.lockVersionList[packageName]) {
-            return this.limitVersionByMaximumVersion(pkgMetaData)
+            return this.limitVersionByMaximumVersion(pkgMetaData);
         }
         return this.limitVersionByDate(pkgMetaData);
     }
 
-    limitVersionByDate(pkgMetaData: PackageData) {
-        const allVersionTimes: Record<string, string | number | Date> = pkgMetaData.time
+    public limitVersionByDate(pkgMetaData: IPackageData): IPackageData {
+        const allVersionTimes: Record<string, string | number | Date> = pkgMetaData.time;
         Object.keys(allVersionTimes).forEach((version) => {
-            allVersionTimes[version] = new Date(allVersionTimes[version]);
+            allVersionTimes[version] = new Date(allVersionTimes[version] as string);
         });
 
         const allowedVersions = Object.keys(allVersionTimes).filter((version) => {
             return allVersionTimes[version] < this.lockDate;
-        })
+        });
 
-        const newTime: Record<string, string> = {};
+        const newTime: ITime = {};
         const newVersions: Record<string, string> = {};
         let maxTime = new Date(0);
-        let latestVersion = '0.0.0';
+        let latestVersion = "0.0.0";
         allowedVersions.forEach((version) => {
-            if (version !== 'modified' && version !== 'created') {
+            if (version !== "modified" && version !== "created") {
                 if (allVersionTimes[version] > maxTime.valueOf()) {
                     maxTime = allVersionTimes[version] as Date;
                     latestVersion = version;
@@ -111,38 +110,39 @@ export class Project {
             }
 
             if (allVersionTimes[version]) {
-                newTime[version] = (<Date>allVersionTimes[version]).toISOString();
+                newTime[version] = (<Date> allVersionTimes[version]).toISOString();
             }
             if (pkgMetaData.versions[version]) {
                 newVersions[version] = pkgMetaData.versions[version];
             }
-
-
         });
-        newTime['modified'] = maxTime.toISOString();
+        newTime.modified = maxTime.toISOString();
 
         return {
-            ...pkgMetaData, 'dist-tags': {
+            ...pkgMetaData,
+            "dist-tags": {
                 latest: latestVersion,
-            }, time: newTime, versions: newVersions,
+            },
+            "time": newTime,
+            "versions": newVersions,
         };
     }
 
-    limitVersionByMaximumVersion(pkgMetaData: PackageData) {
+    public limitVersionByMaximumVersion(pkgMetaData: IPackageData): IPackageData {
         const maxVersion = this.lockVersionList[pkgMetaData.name];
         const allowedVersions = Object.keys(pkgMetaData.time).filter((version) => {
-            if (version === 'modified' || version === 'created') {
+            if (version === "modified" || version === "created") {
                 return true;
             }
             return semver.lte(version, maxVersion);
-        })
+        });
 
-        const newTime: Record<string, string> = {};
+        const newTime: ITime = {};
         const newVersions: Record<string, string> = {};
         let maxTime = new Date(0);
-        let latestVersion = '0.0.0';
+        let latestVersion = "0.0.0";
         allowedVersions.forEach((version) => {
-            if (version !== 'modified' && version !== 'created') {
+            if (version !== "modified" && version !== "created") {
                 if (new Date(pkgMetaData.time[version]).valueOf() > maxTime.valueOf()) {
                     maxTime = new Date(pkgMetaData.time[version]);
                     latestVersion = version;
@@ -156,12 +156,21 @@ export class Project {
                 newVersions[version] = pkgMetaData.versions[version];
             }
         });
-        newTime['modified'] = maxTime.toISOString();
+        newTime.modified = maxTime.toISOString();
 
         return {
-            ...pkgMetaData, 'dist-tags': {
+            ...pkgMetaData, "dist-tags": {
                 latest: latestVersion,
-            }, versions: newVersions, time: newTime,
-        }
+            },
+            "time": newTime,
+            "versions": newVersions,
+        };
     }
+}
+
+interface ITime {
+    [key: string]: string;
+
+    "modified"?: string;
+    "created"?: string;
 }
