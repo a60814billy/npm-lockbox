@@ -1,0 +1,23 @@
+{
+  "name": "npm-lockbox",
+  "version": "0.0.1-alpha.0",
+  "description": "manage and restrict npm dependencies with specific versions or date",
+  "main": "server.js",
+  "scripts": {
+    "dev": "nodemon --ignore ./mirror/* server.js"
+  },
+  "keywords": [
+    "npm",
+    "dependency",
+    "lockbox"
+  ],
+  "author": "Raccoon Li <a60814billy@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "semver": "^7.5.4"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  }
+}
