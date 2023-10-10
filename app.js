@@ -2,7 +2,8 @@
 
 const {MongoClient} = require("mongodb");
 const express = require("express");
-const {isPackageExists, getPackage, downloadPackage} = require("./pkg_utils");
+
+const {Project} = require('./project')
 
 class Application {
     constructor(dbUrl) {
@@ -14,6 +15,11 @@ class Application {
         this.db = null;
 
         this.app = express();
+
+        const project = new Project();
+        project.projectName = "default-project";
+        project.lockDate = new Date('2020-01-01T00:00:00.000Z');
+        project.addLockVersion('jquery', '3.0.0');
 
         this.app.get('*', async (req, res) => {
             const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
@@ -32,11 +38,7 @@ class Application {
                 return;
             }
 
-            if (!await isPackageExists(pkgName)) {
-                await downloadPackage(pkgName);
-            }
-
-            const pkg = await getPackage(pkgName);
+            const pkg = await project.getPackage(pkgName)
             if (pkg) {
                 res.json(pkg);
                 return;
