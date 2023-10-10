@@ -3,7 +3,7 @@ import fs from "fs";
 import semver from "semver";
 import https from "https";
 
-const mirrorPath = path.join(__dirname, 'mirror');
+const mirrorPath = path.join(__dirname, '../mirror');
 
 interface PackageData {
     name: string,
