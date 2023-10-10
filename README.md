@@ -1,6 +1,8 @@
 # npm-lockbox
 
-Manage and restrict npm dependencies with specific versions or date.
+## **Active Development In Progress**
+
+Manage and restrict npm dependencies with specific versions or dates.
 
 ## Introduction
 
