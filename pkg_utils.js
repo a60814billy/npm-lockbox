@@ -1,24 +1,33 @@
-'use strict';
+"use strict";
 
 const path = require('path');
 const fs = require('fs');
 const semver = require('semver');
-
-const express = require('express');
-
-const {downloadPackage} = require('./get-pkg');
-
-
-const app = express();
+const https = require("https");
 
 const mirrorPath = path.join(__dirname, 'mirror');
 
-const filterDate = new Date('2020-01-01T00:00:00.000Z');
+const filterDate = new Date('2024-01-01T00:00:00.000Z');
 
 async function isPackageExists(packageName) {
     const packageMetadataPath = path.join(mirrorPath, `${packageName}.json`)
     return fs.existsSync(packageMetadataPath);
 }
+
+async function getPackage(packageName) {
+    const packageMetadataPath = path.join(mirrorPath, `${packageName}.json`)
+    if (!fs.existsSync(packageMetadataPath)) {
+        return null;
+    }
+
+    const pkgMetaData = JSON.parse(fs.readFileSync(packageMetadataPath).toString());
+
+    if (setPackageMaximumVersion[packageName]) {
+        return limitVersionByMaxiumVersion(pkgMetaData, setPackageMaximumVersion[packageName])
+    }
+    return limitVersionByDate(pkgMetaData, filterDate);
+}
+
 
 const setPackageMaximumVersion = {
     "mkdirp": "1.0.4",
@@ -104,52 +113,50 @@ function limitVersionByMaxiumVersion(pkgMetaData, maxVersion) {
     }
 }
 
-async function getPackage(packageName) {
-    const packageMetadataPath = path.join(mirrorPath, `${packageName}.json`)
-    if (!fs.existsSync(packageMetadataPath)) {
-        return null;
-    }
+function downloadPackage(packageName) {
+    return new Promise((resolve, reject) => {
+        console.log(`Download ${packageName}`);
+        const options = {
+            hostname: 'registry.npmjs.org',
+            port: 443,
+            path: `/${packageName}`,
+            method: 'GET',
+        };
 
-    const pkgMetaData = JSON.parse(fs.readFileSync(packageMetadataPath).toString());
+        const req = https.request(options, (res) => {
+            console.log(`statusCode: ${res.statusCode}`);
 
-    if (setPackageMaximumVersion[packageName]) {
-        return limitVersionByMaxiumVersion(pkgMetaData, setPackageMaximumVersion[packageName])
-    }
-    return limitVersionByDate(pkgMetaData, filterDate);
-}
+            let data = '';
 
-app.get('*', async (req, res) => {
-    const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
-    console.log(fullUrl);
+            res.on('data', (d) => {
+                data += d;
+            });
 
-    let pkgName = decodeURIComponent(req.url);
-    if (pkgName.endsWith('/')) {
-        pkgName = pkgName.substring(0, pkgName.length - 1);
-    }
-    if (pkgName.startsWith('/')) {
-        pkgName = pkgName.substring(1);
-    }
+            res.on('end', () => {
+                const pkg = JSON.parse(data);
+                const pkgPath = `mirror/${packageName}.json`;
 
-    if (pkgName === "") {
-        res.status(200).send(`Home`);
-        return;
-    }
+                const dirName = path.dirname(pkgPath);
+                if (!fs.existsSync(dirName)) {
+                    fs.mkdirSync(dirName);
+                }
 
-    if (!await isPackageExists(pkgName)) {
-        await downloadPackage(pkgName);
-    }
+                fs.writeFileSync(pkgPath, data);
+                console.log(`Downloaded ${packageName} to ${pkgPath}`);
+                resolve();
+            });
+        });
 
-    const pkg = await getPackage(pkgName);
-    if (pkg) {
-        res.json(pkg);
-        return;
-    }
-    res.status(404).send(`package ${pkgName} Not Found`);
-});
+        req.on('error', (error) => {
+            console.error(error);
+            reject(error);
+        });
 
-
-if (require.main === module) {
-    app.listen(8080, () => {
-        console.log('Express running on port 8080');
+        req.end();
     });
 }
+
+
+exports.isPackageExists = isPackageExists;
+exports.getPackage = getPackage;
+exports.downloadPackage = downloadPackage;
