@@ -23,15 +23,8 @@ class Application {
 
         this.app.get('*', async (req, res) => {
             const fullUrl = req.protocol + '://' + req.get('host') + req.originalUrl;
-            console.log(fullUrl);
 
-            let pkgName = decodeURIComponent(req.url);
-            if (pkgName.endsWith('/')) {
-                pkgName = pkgName.substring(0, pkgName.length - 1);
-            }
-            if (pkgName.startsWith('/')) {
-                pkgName = pkgName.substring(1);
-            }
+            let pkgName = this.parsePkgNameFromReq(req);
 
             if (pkgName === "") {
                 res.status(200).send(`Home`);
@@ -46,6 +39,17 @@ class Application {
             res.status(404).send(`package ${pkgName} Not Found`);
         });
 
+    }
+
+    parsePkgNameFromReq(req) {
+        let pkgName = decodeURIComponent(req.url);
+        if (pkgName.endsWith('/')) {
+            pkgName = pkgName.substring(0, pkgName.length - 1);
+        }
+        if (pkgName.startsWith('/')) {
+            pkgName = pkgName.substring(1);
+        }
+        return pkgName;
     }
 
     async start() {
