@@ -26,14 +26,24 @@ export class Project {
     public lockVersionList: Record<string, string>;
     public lockDate: number;
 
+    public ignoreVersionList: Record<string, string[]>
+
     constructor() {
         this.projectName = "";
         this.lockVersionList = {};
         this.lockDate = Date.now();
+        this.ignoreVersionList = {};
     }
 
     addLockVersion(pkgName: string, version: string) {
         this.lockVersionList[pkgName] = version;
+    }
+
+    addIgnoreVersion(pkgName: string, version: string) {
+        if (!this.ignoreVersionList[pkgName]) {
+            this.ignoreVersionList[pkgName] = [];
+        }
+        this.ignoreVersionList[pkgName].push(version);
     }
 
 
@@ -103,9 +113,16 @@ export class Project {
             allVersionTimes[version] = new Date(allVersionTimes[version]);
         });
 
-        const allowedVersions = Object.keys(allVersionTimes).filter((version) => {
+        let allowedVersions = Object.keys(allVersionTimes).filter((version) => {
             return allVersionTimes[version] <= this.lockDate;
         });
+
+        this.ignoreVersionList[pkgMetaData.name]?.forEach((version) => {
+            allowedVersions = allowedVersions.filter((allowedVersion) => {
+                return allowedVersion !== version;
+            });
+        });
+
 
         const newTime: Record<string, string> = {};
         const newVersions: Record<string, PackageVersion> = {};
@@ -139,11 +156,19 @@ export class Project {
 
     limitVersionByMaximumVersion(pkgMetaData: PackageData) {
         const maxVersion = this.lockVersionList[pkgMetaData.name];
-        const allowedVersions = Object.keys(pkgMetaData.time).filter((version) => {
+        let allowedVersions = Object.keys(pkgMetaData.time).filter((version) => {
             if (version === 'modified' || version === 'created') {
                 return true;
             }
+            if (semver.valid(version) === null) {
+                return false;
+            }
             return semver.lte(version, maxVersion);
+        });
+        this.ignoreVersionList[pkgMetaData.name]?.forEach((version) => {
+            allowedVersions = allowedVersions.filter((allowedVersion) => {
+                return allowedVersion !== version;
+            });
         });
 
         const newTime: Record<string, string> = {};

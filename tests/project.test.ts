@@ -16,4 +16,19 @@ describe('Project', function () {
         strictEqual(jqPkg['dist-tags']['latest'], '3.0.0');
         strictEqual(msPkg['dist-tags']['latest'], '2.1.2');
     })
+
+    it('should ignore some package version', async function () {
+        const p = new Project();
+
+        p.addLockVersion('lodash._stack', '4.0.2');
+        p.addIgnoreVersion('lodash._stack', '4.0.0');
+
+        const lodashStack = await p.getPackage('lodash._stack');
+
+        const hasIgnoreVersion = Object.keys(lodashStack.time).some((version) => {
+            return version === '4.0.0'
+        });
+
+        strictEqual(hasIgnoreVersion, false);
+    });
 });
