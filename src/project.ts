@@ -9,7 +9,16 @@ interface PackageData {
     name: string,
     description: string,
     time: Record<string, string>
-    versions: Record<string, string>
+    versions: Record<string, PackageVersion>
+}
+
+interface PackageVersion {
+    name: string,
+    title: string,
+    description: string,
+    version: string,
+    dependencies?: Record<string, string>,
+    devDependencies?: Record<string, string>,
 }
 
 export class Project {
@@ -83,23 +92,23 @@ export class Project {
         const pkgMetaData = JSON.parse(fs.readFileSync(path.join(mirrorPath, `${packageName}.json`)).toString('utf8'));
 
         if (this.lockVersionList[packageName]) {
-            return this.limitVersionByMaximumVersion(pkgMetaData)
+            return this.limitVersionByMaximumVersion(pkgMetaData);
         }
         return this.limitVersionByDate(pkgMetaData);
     }
 
     limitVersionByDate(pkgMetaData: PackageData) {
-        const allVersionTimes: Record<string, string | number | Date> = pkgMetaData.time
+        const allVersionTimes: Record<string, string | number | Date> = pkgMetaData.time;
         Object.keys(allVersionTimes).forEach((version) => {
             allVersionTimes[version] = new Date(allVersionTimes[version]);
         });
 
         const allowedVersions = Object.keys(allVersionTimes).filter((version) => {
-            return allVersionTimes[version] < this.lockDate;
-        })
+            return allVersionTimes[version] <= this.lockDate;
+        });
 
         const newTime: Record<string, string> = {};
-        const newVersions: Record<string, string> = {};
+        const newVersions: Record<string, PackageVersion> = {};
         let maxTime = new Date(0);
         let latestVersion = '0.0.0';
         allowedVersions.forEach((version) => {
@@ -135,10 +144,10 @@ export class Project {
                 return true;
             }
             return semver.lte(version, maxVersion);
-        })
+        });
 
         const newTime: Record<string, string> = {};
-        const newVersions: Record<string, string> = {};
+        const newVersions: Record<string, PackageVersion> = {};
         let maxTime = new Date(0);
         let latestVersion = '0.0.0';
         allowedVersions.forEach((version) => {
@@ -162,6 +171,6 @@ export class Project {
             ...pkgMetaData, 'dist-tags': {
                 latest: latestVersion,
             }, versions: newVersions, time: newTime,
-        }
+        };
     }
 }
