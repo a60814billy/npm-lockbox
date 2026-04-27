@@ -1,6 +1,7 @@
-import {Project} from './project';
 import {resolveMinimalVersion} from './package';
 import semver from "semver";
+import {Project} from "./domain/project";
+import {PackageCatalogService} from "./application/packageCatalogService";
 
 interface ResolvePackage {
     name: string;
@@ -22,11 +23,13 @@ class PackageResolver {
 
     private packageMap: Map<string, ResolvePackage> = new Map<string, ResolvePackage>();
     private readonly project: Project;
+    private readonly packageCatalogService: PackageCatalogService;
 
     private deps: Dep[] = [];
 
-    constructor() {
-        this.project = new Project();
+    constructor(project: Project, packageCatalogService: PackageCatalogService) {
+        this.project = project;
+        this.packageCatalogService = packageCatalogService;
     }
 
     addPackage(name: string, requiredVersion: string) {
@@ -63,7 +66,7 @@ class PackageResolver {
                     prevPkg.historyRequiredVersion?.push(firstPkg.requiredVersion);
                 }
             } else {
-                const pkg = await this.project.getPackage(firstPkg.name);
+                const pkg = await this.packageCatalogService.getPackage(this.project, firstPkg.name);
                 if (pkg) {
                     const r: ResolvePackage = {
                         name: pkg.name,
@@ -107,18 +110,5 @@ class PackageResolver {
         console.log('Set date to:');
         console.log(new Date(dateArray[dateArray.length - 1]).toISOString());
     }
-
 }
-
-async function main() {
-    const r = new PackageResolver();
-    r.addPackage('@babel/core', '7.0.0');
-    r.addPackage('@babel/preset-env', '7.0.0');
-    await r.resolve();
-}
-
-if (require.main === module) {
-    main();
-}
-
 
