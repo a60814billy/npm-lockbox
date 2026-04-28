@@ -176,10 +176,10 @@ describe('Application', function () {
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
         await application.prepare();
 
-        const apiResponse = await request(application.getExpressApp(), 'GET', '/projects/legacy-app/unknown');
+        const apiResponse = await request(application.getExpressApp(), 'GET', '/api/v1/projects/legacy-app/unknown');
 
         assert.strictEqual(apiResponse.statusCode, 404);
-        assert.strictEqual(apiResponse.json.error, '/projects/legacy-app/unknown not found');
+        assert.strictEqual(apiResponse.json.error, '/api/v1/projects/legacy-app/unknown not found');
 
         application.close();
     });
@@ -188,19 +188,19 @@ describe('Application', function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
 
-        await request(application.getExpressApp(), 'POST', '/projects', {
+        await request(application.getExpressApp(), 'POST', '/api/v1/projects', {
             name: 'legacy-app',
             lockDate: '2020-12-31T00:00:00.000Z',
         });
-        await request(application.getExpressApp(), 'POST', '/projects', {
+        await request(application.getExpressApp(), 'POST', '/api/v1/projects', {
             name: 'modern-app',
             lockDate: '2024-01-01T00:00:00.000Z',
         });
-        await request(application.getExpressApp(), 'PUT', '/projects/legacy-app/packages/express/max-version', {
+        await request(application.getExpressApp(), 'PUT', '/api/v1/projects/legacy-app/packages/express/max-version', {
             maxVersion: '4.0.0',
         });
 
-        const projectListResponse = await request(application.getExpressApp(), 'GET', '/projects');
+        const projectListResponse = await request(application.getExpressApp(), 'GET', '/api/v1/projects');
 
         assert.strictEqual(projectListResponse.statusCode, 200);
         assert.deepStrictEqual(
@@ -217,25 +217,29 @@ describe('Application', function () {
         const registryClient = new StubPackageRegistryClient(createPackageData());
         const application = new Application(':memory:', cacheDir, registryClient);
 
-        const createProjectResponse = await request(application.getExpressApp(), 'POST', '/projects', {
+        const createProjectResponse = await request(application.getExpressApp(), 'POST', '/api/v1/projects', {
             name: 'legacy-app',
             lockDate: '2020-12-31T00:00:00.000Z',
         });
         assert.strictEqual(createProjectResponse.statusCode, 201);
 
-        const setMaxVersionResponse = await request(application.getExpressApp(), 'PUT', '/projects/legacy-app/packages/express/max-version', {
+        const setMaxVersionResponse = await request(application.getExpressApp(), 'PUT', '/api/v1/projects/legacy-app/packages/express/max-version', {
             maxVersion: '4.0.0',
         });
         assert.strictEqual(setMaxVersionResponse.statusCode, 200);
         assert.strictEqual(setMaxVersionResponse.json.lockVersionList.express, '4.0.0');
 
-        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+        const registryRootResponse = await request(application.getExpressApp(), 'GET', '/-/legacy-app');
+        assert.strictEqual(registryRootResponse.statusCode, 200);
+        assert.strictEqual(registryRootResponse.body, 'Registry project legacy-app');
+
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/-/legacy-app/express');
         assert.strictEqual(packageResponse.statusCode, 200);
         assert.strictEqual(packageResponse.json['dist-tags'].latest, '4.0.0');
         assert.strictEqual(packageResponse.json.versions['5.0.0'], undefined);
         assert.strictEqual(
             packageResponse.json.versions['4.0.0'].dist.tarball,
-            'http://localhost:8080/p/legacy-app/express/-/express-4.0.0.tgz',
+            'http://localhost:8080/-/legacy-app/express/-/express-4.0.0.tgz',
         );
         assert.strictEqual(registryClient.fetchCount, 1);
 
@@ -246,20 +250,20 @@ describe('Application', function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
 
-        await request(application.getExpressApp(), 'POST', '/projects', {
+        await request(application.getExpressApp(), 'POST', '/api/v1/projects', {
             name: 'legacy-app',
             lockDate: '2022-01-01T00:00:00.000Z',
         });
-        await request(application.getExpressApp(), 'PUT', '/projects/legacy-app/packages/express/max-version', {
+        await request(application.getExpressApp(), 'PUT', '/api/v1/projects/legacy-app/packages/express/max-version', {
             maxVersion: '4.0.0',
         });
 
         const removeMaxVersionResponse = await request(
             application.getExpressApp(),
             'DELETE',
-            '/projects/legacy-app/packages/express/max-version',
+            '/api/v1/projects/legacy-app/packages/express/max-version',
         );
-        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/-/legacy-app/express');
 
         assert.strictEqual(removeMaxVersionResponse.statusCode, 200);
         assert.strictEqual(removeMaxVersionResponse.json.lockVersionList.express, undefined);
@@ -273,7 +277,7 @@ describe('Application', function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
 
-        await request(application.getExpressApp(), 'POST', '/projects', {
+        await request(application.getExpressApp(), 'POST', '/api/v1/projects', {
             name: 'legacy-app',
             lockDate: '2020-12-31T00:00:00.000Z',
         });
@@ -281,9 +285,9 @@ describe('Application', function () {
         const clearLockDateResponse = await request(
             application.getExpressApp(),
             'DELETE',
-            '/projects/legacy-app/lock-date',
+            '/api/v1/projects/legacy-app/lock-date',
         );
-        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/-/legacy-app/express');
 
         assert.strictEqual(clearLockDateResponse.statusCode, 200);
         assert.strictEqual(clearLockDateResponse.json.lockDate, null);
@@ -297,14 +301,14 @@ describe('Application', function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
 
-        await request(application.getExpressApp(), 'POST', '/projects', {
+        await request(application.getExpressApp(), 'POST', '/api/v1/projects', {
             name: 'legacy-app',
             lockDate: '2022-01-01T00:00:00.000Z',
         });
 
-        const deleteResponse = await request(application.getExpressApp(), 'DELETE', '/projects/legacy-app');
-        const projectResponse = await request(application.getExpressApp(), 'GET', '/projects/legacy-app');
-        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+        const deleteResponse = await request(application.getExpressApp(), 'DELETE', '/api/v1/projects/legacy-app');
+        const projectResponse = await request(application.getExpressApp(), 'GET', '/api/v1/projects/legacy-app');
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/-/legacy-app/express');
 
         assert.strictEqual(deleteResponse.statusCode, 204);
         assert.strictEqual(projectResponse.statusCode, 404);
@@ -317,7 +321,7 @@ describe('Application', function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
 
-        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/missing/express');
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/-/missing/express');
 
         assert.strictEqual(packageResponse.statusCode, 404);
 
@@ -332,7 +336,7 @@ describe('Application', function () {
         const tarballResponse = await request(
             application.getExpressApp(),
             'GET',
-            '/p/legacy-app/express/-/express-4.0.0.tgz',
+            '/-/legacy-app/express/-/express-4.0.0.tgz',
         );
 
         assert.strictEqual(tarballResponse.statusCode, 200);

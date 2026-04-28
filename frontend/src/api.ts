@@ -44,7 +44,7 @@ async function readErrorBody(response: Response): Promise<ApiErrorBody> {
 }
 
 export function createProject(name: string, lockDate: string) {
-  return requestProject('/projects', {
+  return requestProject('/api/v1/projects', {
     method: 'POST',
     body: JSON.stringify({
       name,
@@ -54,15 +54,15 @@ export function createProject(name: string, lockDate: string) {
 }
 
 export function getProjects() {
-  return requestJson<ProjectSnapshot[]>('/projects');
+  return requestJson<ProjectSnapshot[]>('/api/v1/projects');
 }
 
 export function getProject(projectName: string) {
-  return requestProject(`/projects/${encodeURIComponent(projectName)}`);
+  return requestProject(`/api/v1/projects/${encodeURIComponent(projectName)}`);
 }
 
 export function updateLockDate(projectName: string, lockDate: string) {
-  return requestProject(`/projects/${encodeURIComponent(projectName)}/lock-date`, {
+  return requestProject(`/api/v1/projects/${encodeURIComponent(projectName)}/lock-date`, {
     method: 'PUT',
     body: JSON.stringify({
       lockDate,
@@ -71,20 +71,20 @@ export function updateLockDate(projectName: string, lockDate: string) {
 }
 
 export function clearLockDate(projectName: string) {
-  return requestProject(`/projects/${encodeURIComponent(projectName)}/lock-date`, {
+  return requestProject(`/api/v1/projects/${encodeURIComponent(projectName)}/lock-date`, {
     method: 'DELETE',
   });
 }
 
 export function deleteProject(projectName: string) {
-  return requestJson<void>(`/projects/${encodeURIComponent(projectName)}`, {
+  return requestJson<void>(`/api/v1/projects/${encodeURIComponent(projectName)}`, {
     method: 'DELETE',
   });
 }
 
 export function setPackageMaxVersion(projectName: string, packageName: string, maxVersion: string) {
   return requestProject(
-    `/projects/${encodeURIComponent(projectName)}/packages/${encodePackagePath(packageName)}/max-version`,
+    `/api/v1/projects/${encodeURIComponent(projectName)}/packages/${encodePackagePath(packageName)}/max-version`,
     {
       method: 'PUT',
       body: JSON.stringify({
@@ -96,7 +96,7 @@ export function setPackageMaxVersion(projectName: string, packageName: string, m
 
 export function deletePackageMaxVersion(projectName: string, packageName: string) {
   return requestProject(
-    `/projects/${encodeURIComponent(projectName)}/packages/${encodePackagePath(packageName)}/max-version`,
+    `/api/v1/projects/${encodeURIComponent(projectName)}/packages/${encodePackagePath(packageName)}/max-version`,
     {
       method: 'DELETE',
     },

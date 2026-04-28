@@ -20,15 +20,15 @@ Package metadata and project rules are cached in a local SQLite database. Set `N
 Create a project, set its lock rules, then point npm at the project registry branch.
 
 ```
-curl -X POST http://localhost:8080/projects \
+curl -X POST http://localhost:8080/api/v1/projects \
   -H 'content-type: application/json' \
   -d '{"name":"legacy-app","lockDate":"2020-12-31T00:00:00.000Z"}'
 
-curl -X PUT http://localhost:8080/projects/legacy-app/packages/express/max-version \
+curl -X PUT http://localhost:8080/api/v1/projects/legacy-app/packages/express/max-version \
   -H 'content-type: application/json' \
   -d '{"maxVersion":"4.0.0"}'
 
-npm config set registry http://localhost:8080/p/legacy-app/
+npm config set registry http://localhost:8080/-/legacy-app/
 ```
 
 When you run `npm install`, metadata and tarball requests go through that project branch. The project lock date applies to all packages, and package-specific maximum versions further restrict the allowed versions.

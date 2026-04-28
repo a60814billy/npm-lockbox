@@ -218,7 +218,7 @@ function ProjectDetailPage({loadingAction, runAction}: ProjectDetailPageProps) {
       .sort(([leftName], [rightName]) => leftName.localeCompare(rightName));
   }, [project]);
   const registryUrl = project
-    ? `${window.location.origin}/p/${encodeURIComponent(project.projectName)}/`
+    ? `${window.location.origin}/-/${encodeURIComponent(project.projectName)}/`
     : '';
 
   useEffect(() => {
@@ -421,6 +421,7 @@ function RoutedApp() {
         <Route path="/ui/projects" element={<ProjectListPage loadingAction={loadingAction} runAction={runAction} />} />
         <Route path="/ui/projects/new" element={<NewProjectPage loadingAction={loadingAction} runAction={runAction} />} />
         <Route path="/ui/projects/:projectName" element={<ProjectDetailPage loadingAction={loadingAction} runAction={runAction} />} />
+        <Route path="*" element={<Navigate replace to="/ui/projects" />} />
       </Routes>
     </AppLayout>
   );

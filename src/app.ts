@@ -50,12 +50,12 @@ export class Application {
     }
 
     private registerProjectRoutes() {
-        this.app.get('/projects', this.asyncRoute(async (_req, res) => {
+        this.app.get('/api/v1/projects', this.asyncRoute(async (_req, res) => {
             const projects = await this.projectService.listProjects();
             res.json(projects.map((project) => project.toSnapshot()));
         }));
 
-        this.app.post('/projects', this.asyncRoute(async (req, res) => {
+        this.app.post('/api/v1/projects', this.asyncRoute(async (req, res) => {
             const lockDate = req.body.lockDate === undefined
                 ? Date.now()
                 : this.parseLockDate(req.body.lockDate);
@@ -68,7 +68,7 @@ export class Application {
             }
         }));
 
-        this.app.get('/projects/:projectName', this.asyncRoute(async (req, res) => {
+        this.app.get('/api/v1/projects/:projectName', this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params.projectName);
             try {
                 const project = await this.projectService.getProject(projectName);
@@ -83,7 +83,7 @@ export class Application {
             }
         }));
 
-        this.app.delete('/projects/:projectName', this.asyncRoute(async (req, res) => {
+        this.app.delete('/api/v1/projects/:projectName', this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params.projectName);
             try {
                 const deleted = await this.projectService.deleteProject(projectName);
@@ -98,7 +98,7 @@ export class Application {
             }
         }));
 
-        this.app.put('/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
+        this.app.put('/api/v1/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params.projectName);
             try {
                 const project = await this.projectService.setLockDate(
@@ -116,7 +116,7 @@ export class Application {
             }
         }));
 
-        this.app.delete('/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
+        this.app.delete('/api/v1/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params.projectName);
             try {
                 const project = await this.projectService.clearLockDate(projectName);
@@ -131,7 +131,7 @@ export class Application {
             }
         }));
 
-        this.app.put(/^\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
+        this.app.put(/^\/api\/v1\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params[0]);
             try {
                 const project = await this.projectService.setPackageMaxVersion(
@@ -150,7 +150,7 @@ export class Application {
             }
         }));
 
-        this.app.delete(/^\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
+        this.app.delete(/^\/api\/v1\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params[0]);
             try {
                 const project = await this.projectService.removePackageMaxVersion(
@@ -170,11 +170,11 @@ export class Application {
     }
 
     private registerRegistryRoutes() {
-        this.app.get('/p/:projectName', (req, res) => {
+        this.app.get('/-/:projectName', (req, res) => {
             res.status(200).send(`Registry project ${this.routeParam(req.params.projectName)}`);
         });
 
-        this.app.get('/p/:projectName/-/tarballs', this.asyncRoute(async (req, res) => {
+        this.app.get('/-/:projectName/-/tarballs', this.asyncRoute(async (req, res) => {
             const tarballUrl = typeof req.query.url === 'string' ? req.query.url : '';
             if (!tarballUrl) {
                 res.status(400).json({error: 'url query parameter is required'});
@@ -199,7 +199,7 @@ export class Application {
             }
         }));
 
-        this.app.get(/^\/p\/([^/]+)\/(.+)\/-\/([^/]+\.tgz)$/, this.asyncRoute(async (req, res) => {
+        this.app.get(/^\/-\/([^/]+)\/(.+)\/-\/([^/]+\.tgz)$/, this.asyncRoute(async (req, res) => {
             const packageName = this.parsePackageNameFromWildcard(this.routeParam(req.params[1]));
             const tarballFile = this.parsePackageNameFromWildcard(this.routeParam(req.params[2]));
             if (!packageName || !tarballFile) {
@@ -213,7 +213,7 @@ export class Application {
             );
         }));
 
-        this.app.get(/^\/p\/([^/]+)\/(.+)$/, this.asyncRoute(async (req, res) => {
+        this.app.get(/^\/-\/([^/]+)\/(.+)$/, this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params[0]);
             const project = await this.projectService.getProject(projectName);
             if (!project) {
@@ -222,7 +222,6 @@ export class Application {
             }
 
             const pkgName = this.parsePackageNameFromWildcard(this.routeParam(req.params[1]));
-            console.log(pkgName);
             if (!pkgName) {
                 res.status(400).json({error: 'package name is required'});
                 return;
@@ -284,7 +283,7 @@ export class Application {
     }
 
     private registerApiFallbackRoutes() {
-        this.app.use(['/projects', '/p'], (req, res) => {
+        this.app.use(['/api/v1', '/-'], (req, res) => {
             res.status(404).json({error: `${req.originalUrl} not found`});
         });
     }
@@ -411,13 +410,13 @@ export class Application {
             const tarballFile = tarballPath.substring(tarballPath.lastIndexOf('/') + 1);
             const tarballPackageName = this.parsePackageNameFromTarballPath(tarballPath) || packageName;
             if (tarballFile) {
-                return `${req.protocol}://${req.get('host')}/p/${encodeURIComponent(projectName)}/${this.encodePath(tarballPackageName)}/-/${encodeURIComponent(tarballFile)}`;
+                return `${req.protocol}://${req.get('host')}/-/${encodeURIComponent(projectName)}/${this.encodePath(tarballPackageName)}/-/${encodeURIComponent(tarballFile)}`;
             }
         } catch (error) {
             // Fall back to the query-based route below for unusual upstream metadata.
         }
 
-        const baseUrl = `${req.protocol}://${req.get('host')}/p/${encodeURIComponent(projectName)}/-/tarballs`;
+        const baseUrl = `${req.protocol}://${req.get('host')}/-/${encodeURIComponent(projectName)}/-/tarballs`;
         return `${baseUrl}?url=${encodeURIComponent(tarballUrl)}`;
     }
 
