@@ -83,6 +83,21 @@ export class Application {
             }
         }));
 
+        this.app.delete('/projects/:projectName', this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params.projectName);
+            try {
+                const deleted = await this.projectService.deleteProject(projectName);
+                if (!deleted) {
+                    res.status(404).json({error: `project ${projectName} not found`});
+                    return;
+                }
+
+                res.status(204).end();
+            } catch (error) {
+                this.sendProjectError(res, error);
+            }
+        }));
+
         this.app.put('/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params.projectName);
             try {
@@ -101,6 +116,21 @@ export class Application {
             }
         }));
 
+        this.app.delete('/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params.projectName);
+            try {
+                const project = await this.projectService.clearLockDate(projectName);
+                if (!project) {
+                    res.status(404).json({error: `project ${projectName} not found`});
+                    return;
+                }
+
+                res.json(project.toSnapshot());
+            } catch (error) {
+                this.sendProjectError(res, error);
+            }
+        }));
+
         this.app.put(/^\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
             const projectName = this.routeParam(req.params[0]);
             try {
@@ -108,6 +138,24 @@ export class Application {
                     projectName,
                     this.parsePackageNameFromWildcard(this.routeParam(req.params[1])),
                     req.body.maxVersion,
+                );
+                if (!project) {
+                    res.status(404).json({error: `project ${projectName} not found`});
+                    return;
+                }
+
+                res.json(project.toSnapshot());
+            } catch (error) {
+                this.sendProjectError(res, error);
+            }
+        }));
+
+        this.app.delete(/^\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params[0]);
+            try {
+                const project = await this.projectService.removePackageMaxVersion(
+                    projectName,
+                    this.parsePackageNameFromWildcard(this.routeParam(req.params[1])),
                 );
                 if (!project) {
                     res.status(404).json({error: `project ${projectName} not found`});

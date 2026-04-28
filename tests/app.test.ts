@@ -242,6 +242,77 @@ describe('Application', function () {
         application.close();
     });
 
+    it('should remove a package maximum version rule from a project', async function () {
+        const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
+        const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
+
+        await request(application.getExpressApp(), 'POST', '/projects', {
+            name: 'legacy-app',
+            lockDate: '2022-01-01T00:00:00.000Z',
+        });
+        await request(application.getExpressApp(), 'PUT', '/projects/legacy-app/packages/express/max-version', {
+            maxVersion: '4.0.0',
+        });
+
+        const removeMaxVersionResponse = await request(
+            application.getExpressApp(),
+            'DELETE',
+            '/projects/legacy-app/packages/express/max-version',
+        );
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+
+        assert.strictEqual(removeMaxVersionResponse.statusCode, 200);
+        assert.strictEqual(removeMaxVersionResponse.json.lockVersionList.express, undefined);
+        assert.strictEqual(packageResponse.statusCode, 200);
+        assert.strictEqual(packageResponse.json['dist-tags'].latest, '5.0.0');
+
+        application.close();
+    });
+
+    it('should clear a project lock date', async function () {
+        const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
+        const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
+
+        await request(application.getExpressApp(), 'POST', '/projects', {
+            name: 'legacy-app',
+            lockDate: '2020-12-31T00:00:00.000Z',
+        });
+
+        const clearLockDateResponse = await request(
+            application.getExpressApp(),
+            'DELETE',
+            '/projects/legacy-app/lock-date',
+        );
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+
+        assert.strictEqual(clearLockDateResponse.statusCode, 200);
+        assert.strictEqual(clearLockDateResponse.json.lockDate, null);
+        assert.strictEqual(packageResponse.statusCode, 200);
+        assert.strictEqual(packageResponse.json['dist-tags'].latest, '5.0.0');
+
+        application.close();
+    });
+
+    it('should delete projects from management and registry routes', async function () {
+        const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
+        const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
+
+        await request(application.getExpressApp(), 'POST', '/projects', {
+            name: 'legacy-app',
+            lockDate: '2022-01-01T00:00:00.000Z',
+        });
+
+        const deleteResponse = await request(application.getExpressApp(), 'DELETE', '/projects/legacy-app');
+        const projectResponse = await request(application.getExpressApp(), 'GET', '/projects/legacy-app');
+        const packageResponse = await request(application.getExpressApp(), 'GET', '/p/legacy-app/express');
+
+        assert.strictEqual(deleteResponse.statusCode, 204);
+        assert.strictEqual(projectResponse.statusCode, 404);
+        assert.strictEqual(packageResponse.statusCode, 404);
+
+        application.close();
+    });
+
     it('should return 404 when registry project does not exist', async function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));

@@ -16,6 +16,7 @@ export interface ProjectRepository {
     listProjects(): Promise<Project[]>;
     findProjectByName(projectName: string): Promise<Project | null>;
     saveProject(project: Project): Promise<void>;
+    deleteProject(projectName: string): Promise<boolean>;
 }
 
 export interface TarballData {

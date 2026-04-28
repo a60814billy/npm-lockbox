@@ -3,7 +3,7 @@ import {PackageData, PackageVersion} from "./packageMetadata";
 
 export interface ProjectSnapshot {
     projectName: string;
-    lockDate: number;
+    lockDate: number | null;
     lockVersionList: Record<string, string>;
     ignoreVersionList?: Record<string, string[]>;
 }
@@ -11,7 +11,7 @@ export interface ProjectSnapshot {
 export class Project {
     public projectName: string;
     public lockVersionList: Record<string, string>;
-    public lockDate: number;
+    public lockDate: number | null;
     public ignoreVersionList: Record<string, string[]>
 
     constructor(snapshot?: Partial<ProjectSnapshot>) {
@@ -23,6 +23,10 @@ export class Project {
 
     addLockVersion(pkgName: string, version: string) {
         this.lockVersionList[pkgName] = version;
+    }
+
+    removeLockVersion(pkgName: string) {
+        delete this.lockVersionList[pkgName];
     }
 
     addIgnoreVersion(pkgName: string, version: string) {
@@ -39,7 +43,7 @@ export class Project {
             }
 
             const releasedAt = pkgMetaData.time[version];
-            if (!releasedAt || new Date(releasedAt).valueOf() > this.lockDate) {
+            if (this.lockDate !== null && (!releasedAt || new Date(releasedAt).valueOf() > this.lockDate)) {
                 return false;
             }
 

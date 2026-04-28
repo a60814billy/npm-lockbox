@@ -22,6 +22,8 @@ interface ProjectLimitRow {
     max_version: string;
 }
 
+const CLEARED_LOCK_DATE = -1;
+
 export class SqlitePackageMetadataRepository implements PackageMetadataRepository, ProjectRepository {
     private readonly db: DatabaseSync;
 
@@ -110,7 +112,7 @@ export class SqlitePackageMetadataRepository implements PackageMetadataRepositor
 
         return new Project({
             projectName: row.name,
-            lockDate: row.lock_date,
+            lockDate: this.toDomainLockDate(row.lock_date),
             lockVersionList: limitRows.reduce((acc: Record<string, string>, limitRow) => {
                 acc[limitRow.package_name] = limitRow.max_version;
                 return acc;
@@ -139,7 +141,7 @@ export class SqlitePackageMetadataRepository implements PackageMetadataRepositor
 
         return projectRows.map((row) => new Project({
             projectName: row.name,
-            lockDate: row.lock_date,
+            lockDate: this.toDomainLockDate(row.lock_date),
             lockVersionList: limitsByProjectName[row.name] || {},
             ignoreVersionList: JSON.parse(row.ignore_version_json || '{}'),
         }));
@@ -155,7 +157,7 @@ export class SqlitePackageMetadataRepository implements PackageMetadataRepositor
                     ignore_version_json = excluded.ignore_version_json,
                     updated_at = CURRENT_TIMESTAMP
             `)
-            .run(project.projectName, project.lockDate, JSON.stringify(project.ignoreVersionList));
+            .run(project.projectName, this.toStoredLockDate(project.lockDate), JSON.stringify(project.ignoreVersionList));
 
         this.db
             .prepare('DELETE FROM project_package_limits WHERE project_name = ?')
@@ -169,6 +171,26 @@ export class SqlitePackageMetadataRepository implements PackageMetadataRepositor
         Object.keys(project.lockVersionList).forEach((packageName) => {
             insertLimitStatement.run(project.projectName, packageName, project.lockVersionList[packageName]);
         });
+    }
+
+    async deleteProject(projectName: string): Promise<boolean> {
+        this.db
+            .prepare('DELETE FROM project_package_limits WHERE project_name = ?')
+            .run(projectName);
+
+        const result = this.db
+            .prepare('DELETE FROM projects WHERE name = ?')
+            .run(projectName);
+
+        return result.changes > 0;
+    }
+
+    private toDomainLockDate(lockDate: number) {
+        return lockDate === CLEARED_LOCK_DATE ? null : lockDate;
+    }
+
+    private toStoredLockDate(lockDate: number | null) {
+        return lockDate === null ? CLEARED_LOCK_DATE : lockDate;
     }
 
     close() {

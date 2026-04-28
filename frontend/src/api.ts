@@ -1,6 +1,6 @@
 export interface ProjectSnapshot {
   projectName: string;
-  lockDate: number;
+  lockDate: number | null;
   lockVersionList: Record<string, string>;
   ignoreVersionList: Record<string, string[]>;
 }
@@ -23,7 +23,12 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error(body.error || `${response.status} ${response.statusText}`);
   }
 
-  return response.json();
+  const text = await response.text();
+  if (text.length === 0) {
+    return undefined as T;
+  }
+
+  return JSON.parse(text) as T;
 }
 
 async function requestProject(path: string, init?: RequestInit): Promise<ProjectSnapshot> {
@@ -65,6 +70,18 @@ export function updateLockDate(projectName: string, lockDate: string) {
   });
 }
 
+export function clearLockDate(projectName: string) {
+  return requestProject(`/projects/${encodeURIComponent(projectName)}/lock-date`, {
+    method: 'DELETE',
+  });
+}
+
+export function deleteProject(projectName: string) {
+  return requestJson<void>(`/projects/${encodeURIComponent(projectName)}`, {
+    method: 'DELETE',
+  });
+}
+
 export function setPackageMaxVersion(projectName: string, packageName: string, maxVersion: string) {
   return requestProject(
     `/projects/${encodeURIComponent(projectName)}/packages/${encodePackagePath(packageName)}/max-version`,
@@ -73,6 +90,15 @@ export function setPackageMaxVersion(projectName: string, packageName: string, m
       body: JSON.stringify({
         maxVersion,
       }),
+    },
+  );
+}
+
+export function deletePackageMaxVersion(projectName: string, packageName: string) {
+  return requestProject(
+    `/projects/${encodeURIComponent(projectName)}/packages/${encodePackagePath(packageName)}/max-version`,
+    {
+      method: 'DELETE',
     },
   );
 }

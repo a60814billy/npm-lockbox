@@ -46,6 +46,20 @@ export class ProjectService {
         return project;
     }
 
+    async clearLockDate(projectName: string): Promise<Project | null> {
+        this.assertValidProjectName(projectName);
+
+        const project = await this.projectRepository.findProjectByName(projectName);
+        if (!project) {
+            return null;
+        }
+
+        project.lockDate = null;
+        await this.projectRepository.saveProject(project);
+
+        return project;
+    }
+
     async setPackageMaxVersion(projectName: string, packageName: string, maxVersion: string): Promise<Project | null> {
         this.assertValidProjectName(projectName);
         if (!packageName) {
@@ -64,6 +78,28 @@ export class ProjectService {
         await this.projectRepository.saveProject(project);
 
         return project;
+    }
+
+    async removePackageMaxVersion(projectName: string, packageName: string): Promise<Project | null> {
+        this.assertValidProjectName(projectName);
+        if (!packageName) {
+            throw new Error("Package name is required");
+        }
+
+        const project = await this.projectRepository.findProjectByName(projectName);
+        if (!project) {
+            return null;
+        }
+
+        project.removeLockVersion(packageName);
+        await this.projectRepository.saveProject(project);
+
+        return project;
+    }
+
+    async deleteProject(projectName: string): Promise<boolean> {
+        this.assertValidProjectName(projectName);
+        return this.projectRepository.deleteProject(projectName);
     }
 
     private assertValidProjectName(projectName: string) {

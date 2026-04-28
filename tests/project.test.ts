@@ -69,6 +69,33 @@ describe('Project', function () {
         strictEqual(expressPkg.versions['4.0.0'], undefined);
     });
 
+    it('should not limit package metadata by date after lock date is cleared', function () {
+        const p = new Project();
+        p.lockDate = null;
+
+        const msPkg = p.limitPackage(createPackageData('ms', [
+            {version: '2.1.1', time: '2018-01-01T00:00:00.000Z'},
+            {version: '2.1.2', time: '2019-01-01T00:00:00.000Z'},
+            {version: '2.1.3', time: '2021-01-01T00:00:00.000Z'},
+        ]));
+
+        strictEqual(msPkg['dist-tags']!.latest, '2.1.3');
+    });
+
+    it('should remove a maximum version package rule', function () {
+        const p = new Project();
+        p.addLockVersion('jquery', '3.0.0');
+        p.removeLockVersion('jquery');
+
+        const jqPkg = p.limitPackage(createPackageData('jquery', [
+            {version: '2.0.0', time: '2018-01-01T00:00:00.000Z'},
+            {version: '3.0.0', time: '2019-01-01T00:00:00.000Z'},
+            {version: '4.0.0', time: '2021-01-01T00:00:00.000Z'},
+        ]));
+
+        strictEqual(jqPkg['dist-tags']!.latest, '4.0.0');
+    });
+
     it('should set latest to the highest allowed semver version', function () {
         const p = new Project();
         p.lockDate = new Date("2022-01-01T00:00:00.000Z").valueOf();
