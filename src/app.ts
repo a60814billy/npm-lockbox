@@ -69,10 +69,11 @@ export class Application {
         }));
 
         this.app.get('/projects/:projectName', this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params.projectName);
             try {
-                const project = await this.projectService.getProject(req.params.projectName);
+                const project = await this.projectService.getProject(projectName);
                 if (!project) {
-                    res.status(404).json({error: `project ${req.params.projectName} not found`});
+                    res.status(404).json({error: `project ${projectName} not found`});
                     return;
                 }
 
@@ -83,13 +84,14 @@ export class Application {
         }));
 
         this.app.put('/projects/:projectName/lock-date', this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params.projectName);
             try {
                 const project = await this.projectService.setLockDate(
-                    req.params.projectName,
+                    projectName,
                     this.parseLockDate(req.body.lockDate),
                 );
                 if (!project) {
-                    res.status(404).json({error: `project ${req.params.projectName} not found`});
+                    res.status(404).json({error: `project ${projectName} not found`});
                     return;
                 }
 
@@ -99,15 +101,16 @@ export class Application {
             }
         }));
 
-        this.app.put('/projects/:projectName/packages/*/max-version', this.asyncRoute(async (req, res) => {
+        this.app.put(/^\/projects\/([^/]+)\/packages\/(.+)\/max-version$/, this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params[0]);
             try {
                 const project = await this.projectService.setPackageMaxVersion(
-                    req.params.projectName,
-                    this.parsePackageNameFromWildcard(req.params[0]),
+                    projectName,
+                    this.parsePackageNameFromWildcard(this.routeParam(req.params[1])),
                     req.body.maxVersion,
                 );
                 if (!project) {
-                    res.status(404).json({error: `project ${req.params.projectName} not found`});
+                    res.status(404).json({error: `project ${projectName} not found`});
                     return;
                 }
 
@@ -120,7 +123,7 @@ export class Application {
 
     private registerRegistryRoutes() {
         this.app.get('/p/:projectName', (req, res) => {
-            res.status(200).send(`Registry project ${req.params.projectName}`);
+            res.status(200).send(`Registry project ${this.routeParam(req.params.projectName)}`);
         });
 
         this.app.get('/p/:projectName/-/tarballs', this.asyncRoute(async (req, res) => {
@@ -149,8 +152,8 @@ export class Application {
         }));
 
         this.app.get(/^\/p\/([^/]+)\/(.+)\/-\/([^/]+\.tgz)$/, this.asyncRoute(async (req, res) => {
-            const packageName = this.parsePackageNameFromWildcard(req.params[1]);
-            const tarballFile = this.parsePackageNameFromWildcard(req.params[2]);
+            const packageName = this.parsePackageNameFromWildcard(this.routeParam(req.params[1]));
+            const tarballFile = this.parsePackageNameFromWildcard(this.routeParam(req.params[2]));
             if (!packageName || !tarballFile) {
                 res.status(400).json({error: 'tarball path is required'});
                 return;
@@ -162,14 +165,15 @@ export class Application {
             );
         }));
 
-        this.app.get('/p/:projectName/*', this.asyncRoute(async (req, res) => {
-            const project = await this.projectService.getProject(req.params.projectName);
+        this.app.get(/^\/p\/([^/]+)\/(.+)$/, this.asyncRoute(async (req, res) => {
+            const projectName = this.routeParam(req.params[0]);
+            const project = await this.projectService.getProject(projectName);
             if (!project) {
-                res.status(404).json({error: `project ${req.params.projectName} not found`});
+                res.status(404).json({error: `project ${projectName} not found`});
                 return;
             }
 
-            const pkgName = this.parsePackageNameFromWildcard(req.params[0]);
+            const pkgName = this.parsePackageNameFromWildcard(this.routeParam(req.params[1]));
             console.log(pkgName);
             if (!pkgName) {
                 res.status(400).json({error: 'package name is required'});
@@ -179,7 +183,7 @@ export class Application {
             try {
                 const pkg = await this.packageCatalogService.getPackage(project, pkgName)
                 if (pkg) {
-                    res.json(this.rewriteTarballUrls(req, req.params.projectName, pkg));
+                    res.json(this.rewriteTarballUrls(req, projectName, pkg));
                     return;
                 }
 
@@ -260,7 +264,7 @@ export class Application {
             this.frontendDevServer = viteServer;
 
             this.app.use(viteServer.middlewares);
-            this.app.use('*', this.asyncRoute(async (req, res) => {
+            this.app.use(/.*/, this.asyncRoute(async (req, res) => {
                 const indexPath = path.join(frontendRoot, 'index.html');
                 const template = fs.readFileSync(indexPath, 'utf-8');
                 const html = await viteServer.transformIndexHtml(req.originalUrl, template);
@@ -270,7 +274,7 @@ export class Application {
         }
 
         this.app.use(express.static(frontendDist));
-        this.app.get('*', (req, res) => {
+        this.app.get(/.*/, (req, res) => {
             res.sendFile(path.join(frontendDist, 'index.html'));
         });
     }
@@ -301,6 +305,14 @@ export class Application {
             packageName = packageName.substring(1);
         }
         return packageName;
+    }
+
+    private routeParam(param: string | string[] | undefined) {
+        if (Array.isArray(param)) {
+            return param.join('/');
+        }
+
+        return param || '';
     }
 
     private parseLockDate(lockDate: unknown) {
