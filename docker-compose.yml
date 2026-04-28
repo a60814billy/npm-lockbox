@@ -1,0 +1,17 @@
+services:
+  npm-lockbox:
+    build:
+      context: .
+    image: npm-lockbox:local
+    ports:
+      - "8080:8080"
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+      NPM_LB_DB_PATH: /data/npm-lockbox.sqlite
+      NPM_LB_TARBALL_CACHE_DIR: /data/mirror
+    volumes:
+      - npm-lockbox-data:/data
+
+volumes:
+  npm-lockbox-data:

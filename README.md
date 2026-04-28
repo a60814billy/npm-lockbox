@@ -32,3 +32,13 @@ npm config set registry http://localhost:8080/-/legacy-app/
 ```
 
 When you run `npm install`, metadata and tarball requests go through that project branch. The project lock date applies to all packages, and package-specific maximum versions further restrict the allowed versions.
+
+## Docker
+
+Build and run the production server with persistent SQLite and tarball cache data:
+
+```
+docker compose up --build
+```
+
+The container listens on port `8080`, stores project/cache data under the `npm-lockbox-data` volume, and exposes the SPA at `http://localhost:8080/ui/projects`.
