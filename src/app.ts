@@ -1,4 +1,6 @@
 import http from "http";
+import fs from "fs";
+import path from "path";
 import {URL} from "url";
 import express, {Express, NextFunction, Request, Response} from "express";
 import {PackageCatalogService} from "./application/packageCatalogService";
@@ -18,6 +20,9 @@ export class Application {
     private packageCatalogService: PackageCatalogService;
     private projectService: ProjectService;
     private tarballCacheService: TarballCacheService;
+    private frontendRegistered = false;
+    private errorHandlerRegistered = false;
+    private frontendDevServer?: {close: () => Promise<void>};
 
     constructor(
         dbPath?: string,
@@ -41,18 +46,15 @@ export class Application {
 
         this.registerProjectRoutes();
         this.registerRegistryRoutes();
-
-        this.app.get('/', (req, res) => {
-            res.status(200).send(`Home`);
-        });
-
-        this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
-            console.error(err);
-            res.status(500).json({error: err.message});
-        });
+        this.registerApiFallbackRoutes();
     }
 
     private registerProjectRoutes() {
+        this.app.get('/projects', this.asyncRoute(async (_req, res) => {
+            const projects = await this.projectService.listProjects();
+            res.json(projects.map((project) => project.toSnapshot()));
+        }));
+
         this.app.post('/projects', this.asyncRoute(async (req, res) => {
             const lockDate = req.body.lockDate === undefined
                 ? Date.now()
@@ -203,10 +205,17 @@ export class Application {
         return this.app;
     }
 
+    async prepare() {
+        await this.registerFrontendRoutes();
+        this.registerErrorHandler();
+    }
+
     async start() {
+        const port = Number(process.env.PORT || 8080);
+        await this.prepare();
         await new Promise<void>((resolve) => {
-            this.server = this.app.listen(8080, () => {
-                console.log('Server started at port 8080');
+            this.server = this.app.listen(port, () => {
+                console.log(`Server started at port ${port}`);
                 resolve();
             });
         });
@@ -216,7 +225,71 @@ export class Application {
         if (this.server) {
             this.server.close();
         }
+        if (this.frontendDevServer) {
+            this.frontendDevServer.close().catch((error) => console.error(error));
+        }
         this.packageMetadataRepository.close();
+    }
+
+    private registerApiFallbackRoutes() {
+        this.app.use(['/projects', '/p'], (req, res) => {
+            res.status(404).json({error: `${req.originalUrl} not found`});
+        });
+    }
+
+    private async registerFrontendRoutes() {
+        if (this.frontendRegistered) {
+            return;
+        }
+        this.frontendRegistered = true;
+
+        const frontendRoot = path.resolve(process.cwd(), 'frontend');
+        const frontendDist = path.join(frontendRoot, 'dist');
+        const isProduction = process.env.NODE_ENV === 'production';
+
+        if (!isProduction) {
+            const vite = await this.importVite();
+            const viteServer = await vite.createServer({
+                root: frontendRoot,
+                appType: 'custom',
+                configFile: path.join(frontendRoot, 'vite.config.mjs'),
+                server: {
+                    middlewareMode: true,
+                },
+            });
+            this.frontendDevServer = viteServer;
+
+            this.app.use(viteServer.middlewares);
+            this.app.use('*', this.asyncRoute(async (req, res) => {
+                const indexPath = path.join(frontendRoot, 'index.html');
+                const template = fs.readFileSync(indexPath, 'utf-8');
+                const html = await viteServer.transformIndexHtml(req.originalUrl, template);
+                res.status(200).setHeader('content-type', 'text/html').end(html);
+            }));
+            return;
+        }
+
+        this.app.use(express.static(frontendDist));
+        this.app.get('*', (req, res) => {
+            res.sendFile(path.join(frontendDist, 'index.html'));
+        });
+    }
+
+    private async importVite() {
+        const dynamicImport = new Function('specifier', 'return import(specifier)');
+        return dynamicImport('vite') as Promise<typeof import('vite')>;
+    }
+
+    private registerErrorHandler() {
+        if (this.errorHandlerRegistered) {
+            return;
+        }
+        this.errorHandlerRegistered = true;
+
+        this.app.use((err: Error, req: Request, res: Response, next: NextFunction) => {
+            console.error(err);
+            res.status(500).json({error: err.message});
+        });
     }
 
     private parsePackageNameFromWildcard(wildcardPath: string) {

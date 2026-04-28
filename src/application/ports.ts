@@ -13,6 +13,7 @@ export interface PackageRegistryClient {
 
 export interface ProjectRepository {
     createProject(project: Project): Promise<void>;
+    listProjects(): Promise<Project[]>;
     findProjectByName(projectName: string): Promise<Project | null>;
     saveProject(project: Project): Promise<void>;
 }

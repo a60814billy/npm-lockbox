@@ -106,7 +106,7 @@ export class SqlitePackageMetadataRepository implements PackageMetadataRepositor
 
         const limitRows = this.db
             .prepare('SELECT package_name, max_version FROM project_package_limits WHERE project_name = ?')
-            .all(projectName) as ProjectLimitRow[];
+            .all(projectName) as unknown as ProjectLimitRow[];
 
         return new Project({
             projectName: row.name,
@@ -117,6 +117,32 @@ export class SqlitePackageMetadataRepository implements PackageMetadataRepositor
             }, {}),
             ignoreVersionList: JSON.parse(row.ignore_version_json || '{}'),
         });
+    }
+
+    async listProjects(): Promise<Project[]> {
+        const projectRows = this.db
+            .prepare('SELECT name, lock_date, ignore_version_json FROM projects ORDER BY name COLLATE NOCASE ASC')
+            .all() as unknown as ProjectRow[];
+
+        if (projectRows.length === 0) {
+            return [];
+        }
+
+        const limitRows = this.db
+            .prepare('SELECT project_name, package_name, max_version FROM project_package_limits ORDER BY package_name COLLATE NOCASE ASC')
+            .all() as unknown as Array<ProjectLimitRow & {project_name: string}>;
+        const limitsByProjectName = limitRows.reduce((acc: Record<string, Record<string, string>>, limitRow) => {
+            acc[limitRow.project_name] = acc[limitRow.project_name] || {};
+            acc[limitRow.project_name][limitRow.package_name] = limitRow.max_version;
+            return acc;
+        }, {});
+
+        return projectRows.map((row) => new Project({
+            projectName: row.name,
+            lockDate: row.lock_date,
+            lockVersionList: limitsByProjectName[row.name] || {},
+            ignoreVersionList: JSON.parse(row.ignore_version_json || '{}'),
+        }));
     }
 
     async saveProject(project: Project): Promise<void> {

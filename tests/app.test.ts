@@ -156,6 +156,62 @@ function request(app: Express, method: string, requestPath: string, body?: unkno
 }
 
 describe('Application', function () {
+    it('should serve the frontend shell from the express app', async function () {
+        const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
+        const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
+        await application.prepare();
+
+        const frontendResponse = await request(application.getExpressApp(), 'GET', '/');
+
+        assert.strictEqual(frontendResponse.statusCode, 200);
+        assert.ok(String(frontendResponse.headers['content-type']).includes('text/html'));
+        assert.ok(frontendResponse.body.includes('<div id="root"></div>'));
+        assert.ok(frontendResponse.body.includes('/src/main.tsx'));
+
+        application.close();
+    });
+
+    it('should keep unmatched API routes out of the frontend fallback', async function () {
+        const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
+        const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
+        await application.prepare();
+
+        const apiResponse = await request(application.getExpressApp(), 'GET', '/projects/legacy-app/unknown');
+
+        assert.strictEqual(apiResponse.statusCode, 404);
+        assert.strictEqual(apiResponse.json.error, '/projects/legacy-app/unknown not found');
+
+        application.close();
+    });
+
+    it('should list projects with lock summaries', async function () {
+        const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
+        const application = new Application(':memory:', cacheDir, new StubPackageRegistryClient(createPackageData()));
+
+        await request(application.getExpressApp(), 'POST', '/projects', {
+            name: 'legacy-app',
+            lockDate: '2020-12-31T00:00:00.000Z',
+        });
+        await request(application.getExpressApp(), 'POST', '/projects', {
+            name: 'modern-app',
+            lockDate: '2024-01-01T00:00:00.000Z',
+        });
+        await request(application.getExpressApp(), 'PUT', '/projects/legacy-app/packages/express/max-version', {
+            maxVersion: '4.0.0',
+        });
+
+        const projectListResponse = await request(application.getExpressApp(), 'GET', '/projects');
+
+        assert.strictEqual(projectListResponse.statusCode, 200);
+        assert.deepStrictEqual(
+            projectListResponse.json.map((project: {projectName: string}) => project.projectName),
+            ['legacy-app', 'modern-app'],
+        );
+        assert.strictEqual(projectListResponse.json[0].lockVersionList.express, '4.0.0');
+
+        application.close();
+    });
+
     it('should create projects and apply project package rules through registry routes', async function () {
         const cacheDir = fs.mkdtempSync(path.join(os.tmpdir(), 'npm-lockbox-app-'));
         const registryClient = new StubPackageRegistryClient(createPackageData());

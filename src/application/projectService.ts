@@ -27,6 +27,10 @@ export class ProjectService {
         return this.projectRepository.findProjectByName(projectName);
     }
 
+    async listProjects(): Promise<Project[]> {
+        return this.projectRepository.listProjects();
+    }
+
     async setLockDate(projectName: string, lockDate: number): Promise<Project | null> {
         this.assertValidProjectName(projectName);
         this.assertValidLockDate(lockDate);
